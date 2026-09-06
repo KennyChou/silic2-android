@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Silic2" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#121816</item>
+        <item name="android:navigationBarColor">#121816</item>
+        <!-- Android 12+ SplashScreen 啟動畫面設定 -->
+        <item name="android:windowSplashScreenBackground">#1A2E25</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">#1A2E25</item>
+    </style>
+</resources>
