@@ -208,7 +208,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 LinkItem(
-                    label = "RedbirdTaiwan / 紅鳥台灣",
+                    label = "RedbirdTaiwan / 吳紅鳩",
                     url = "https://github.com/RedbirdTaiwan",
                     context = context
                 )
