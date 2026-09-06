@@ -25,7 +25,7 @@
 
 ### 什麼是 SILIC？
 
-**SILIC（Sound Identification and Labeling Intelligence for Creatures）** 是由台灣 [紅鳥團隊（RedbirdTaiwan）](https://github.com/RedbirdTaiwan) 開發的野生動物聲音辨識與標註管線系統。SILIC 第二版（silic2）採用 **YOLOv8 物件偵測模型**，將聲音訊號轉換為 Mel 頻譜圖後，以視覺偵測的方式精準定位並辨識野生動物的鳴叫聲。
+**SILIC（Sound Identification and Labeling Intelligence for Creatures）** 是由[RedbirdTaiwan](https://github.com/RedbirdTaiwan) 開發的野生動物聲音辨識與標註管線系統。SILIC 第二版（silic2）採用 **YOLOv8 物件偵測模型**，將聲音訊號轉換為 Mel 頻譜圖後，以視覺偵測的方式精準定位並辨識野生動物的鳴叫聲。
 
 上游專案提供了完整的 Python 命令列工具與桌面介面，適用於實驗室與工作站的批次分析場景。
 

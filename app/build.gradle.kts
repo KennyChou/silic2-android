@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.silic2.app"
+    namespace = "cc.kennydev.silic2.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.silic2.app"
+        applicationId = "cc.kennydev.silic2.app"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
