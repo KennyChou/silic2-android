@@ -12,6 +12,25 @@ val keyProperties = Properties().apply {
     if (keyPropertiesFile.exists()) load(keyPropertiesFile.inputStream())
 }
 
+// 版本控管：由 git 自動產生
+// versionCode = git commit 總數（每次 commit 自動遞增，Play Store 用）
+// versionName = 最近的 git tag（例如 v1.0.0），無 tag 時退回 commit hash
+fun gitVersionCode(): Int =
+    runCatching {
+        ProcessBuilder("git", "rev-list", "--count", "HEAD")
+            .directory(rootDir)
+            .start()
+            .inputStream.bufferedReader().readText().trim().toInt()
+    }.getOrDefault(1)
+
+fun gitVersionName(): String =
+    runCatching {
+        ProcessBuilder("git", "describe", "--tags", "--always")
+            .directory(rootDir)
+            .start()
+            .inputStream.bufferedReader().readText().trim()
+    }.getOrDefault("1.0.0")
+
 android {
     namespace = "cc.kennydev.silic2.app"
     compileSdk = 35
@@ -20,8 +39,8 @@ android {
         applicationId = "cc.kennydev.silic2.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = gitVersionCode()
+        versionName = gitVersionName()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
