@@ -360,6 +360,12 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setTargetClasses(classIds: Collection<Int>) {
+        _uiState.update { current ->
+            current.copy(targetClassIds = classIds.toSet())
+        }
+    }
+
     fun clearTargetClasses() {
         _uiState.update { it.copy(targetClassIds = emptySet()) }
     }

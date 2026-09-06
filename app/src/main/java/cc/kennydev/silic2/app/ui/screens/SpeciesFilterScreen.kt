@@ -72,6 +72,7 @@ fun SpeciesFilterScreen(
     onToggleClass: (Int) -> Unit,
     onSelectMultiple: (List<Int>) -> Unit,
     onDeselectMultiple: (List<Int>) -> Unit,
+    onSetSelection: (Collection<Int>) -> Unit = {},
     onClearSelection: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -174,28 +175,40 @@ fun SpeciesFilterScreen(
                     category = AnimalCategory.ALL,
                     count = allClasses.size,
                     isSelected = selectedCategory == AnimalCategory.ALL,
-                    onClick = { selectedCategory = AnimalCategory.ALL }
+                    onClick = {
+                        selectedCategory = AnimalCategory.ALL
+                        onSetSelection(allClasses.map { it.soundclassId })
+                    }
                 )
                 // 鳥類
                 CategoryTabChip(
                     category = AnimalCategory.BIRD,
                     count = birdCount,
                     isSelected = selectedCategory == AnimalCategory.BIRD,
-                    onClick = { selectedCategory = AnimalCategory.BIRD }
+                    onClick = {
+                        selectedCategory = AnimalCategory.BIRD
+                        onSetSelection(allClasses.filter { it.category == AnimalCategory.BIRD }.map { it.soundclassId })
+                    }
                 )
                 // 蛙類
                 CategoryTabChip(
                     category = AnimalCategory.FROG,
                     count = frogCount,
                     isSelected = selectedCategory == AnimalCategory.FROG,
-                    onClick = { selectedCategory = AnimalCategory.FROG }
+                    onClick = {
+                        selectedCategory = AnimalCategory.FROG
+                        onSetSelection(allClasses.filter { it.category == AnimalCategory.FROG }.map { it.soundclassId })
+                    }
                 )
                 // 哺乳類
                 CategoryTabChip(
                     category = AnimalCategory.MAMMAL,
                     count = mammalCount,
                     isSelected = selectedCategory == AnimalCategory.MAMMAL,
-                    onClick = { selectedCategory = AnimalCategory.MAMMAL }
+                    onClick = {
+                        selectedCategory = AnimalCategory.MAMMAL
+                        onSetSelection(allClasses.filter { it.category == AnimalCategory.MAMMAL }.map { it.soundclassId })
+                    }
                 )
                 // 其他
                 if (otherCount > 0) {
@@ -203,7 +216,10 @@ fun SpeciesFilterScreen(
                         category = AnimalCategory.OTHER,
                         count = otherCount,
                         isSelected = selectedCategory == AnimalCategory.OTHER,
-                        onClick = { selectedCategory = AnimalCategory.OTHER }
+                        onClick = {
+                            selectedCategory = AnimalCategory.OTHER
+                            onSetSelection(allClasses.filter { it.category == AnimalCategory.OTHER }.map { it.soundclassId })
+                        }
                     )
                 }
             }
@@ -224,38 +240,36 @@ fun SpeciesFilterScreen(
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    // 若選取特定大類，提供一鍵全選此分類
-                    if (selectedCategory != AnimalCategory.ALL) {
-                        val categoryIds = remember(selectedCategory, allClasses) {
-                            allClasses.filter { it.category == selectedCategory }.map { it.soundclassId }
-                        }
-                        val isAllCategorySelected = categoryIds.isNotEmpty() && categoryIds.all { selectedIds.contains(it) }
+                    val currentListIds = remember(filteredList) { filteredList.map { it.soundclassId } }
+                    val isAllCurrentSelected = currentListIds.isNotEmpty() && currentListIds.all { selectedIds.contains(it) }
 
+                    // 一鍵切換全選 / 取消全選當前清單
+                    if (currentListIds.isNotEmpty()) {
                         AssistChip(
                             onClick = {
-                                if (isAllCategorySelected) {
-                                    onDeselectMultiple(categoryIds)
+                                if (isAllCurrentSelected) {
+                                    onDeselectMultiple(currentListIds)
                                 } else {
-                                    onSelectMultiple(categoryIds)
+                                    onSelectMultiple(currentListIds)
                                 }
                             },
                             label = {
                                 Text(
-                                    text = if (isAllCategorySelected) "取消此類" else "鎖定所有${selectedCategory.displayName}",
+                                    text = if (isAllCurrentSelected) "取消全選" else "全選 (${currentListIds.size})",
                                     fontSize = 11.sp
                                 )
                             },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = if (isAllCategorySelected) Icons.Default.RemoveDone else Icons.Default.DoneAll,
+                                    imageVector = if (isAllCurrentSelected) Icons.Default.RemoveDone else Icons.Default.DoneAll,
                                     contentDescription = null,
                                     modifier = Modifier.size(14.dp)
                                 )
                             },
                             colors = AssistChipDefaults.assistChipColors(
-                                containerColor = if (isAllCategorySelected) ForestSurfaceVariant else ForestSurface,
-                                labelColor = if (isAllCategorySelected) TextSecondary else SilicGreen,
-                                leadingIconContentColor = if (isAllCategorySelected) TextSecondary else SilicGreen
+                                containerColor = if (isAllCurrentSelected) ForestSurfaceVariant else ForestSurface,
+                                labelColor = if (isAllCurrentSelected) TextSecondary else SilicGreen,
+                                leadingIconContentColor = if (isAllCurrentSelected) TextSecondary else SilicGreen
                             )
                         )
                     }
@@ -263,7 +277,7 @@ fun SpeciesFilterScreen(
                     if (selectedIds.isNotEmpty()) {
                         AssistChip(
                             onClick = onClearSelection,
-                            label = { Text("重設", fontSize = 11.sp) },
+                            label = { Text("清空選取", fontSize = 11.sp) },
                             colors = AssistChipDefaults.assistChipColors(
                                 containerColor = ForestSurface,
                                 labelColor = Color(0xFFFF8A80)

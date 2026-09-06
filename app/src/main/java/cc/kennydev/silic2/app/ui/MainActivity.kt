@@ -108,6 +108,7 @@ class MainActivity : ComponentActivity() {
                                         onToggleClass = { id -> viewModel.toggleTargetClass(id) },
                                         onSelectMultiple = { ids -> viewModel.selectMultipleClasses(ids) },
                                         onDeselectMultiple = { ids -> viewModel.deselectMultipleClasses(ids) },
+                                        onSetSelection = { ids -> viewModel.setTargetClasses(ids) },
                                         onClearSelection = { viewModel.clearTargetClasses() },
                                         onBack = { currentScreen = Screen.Live }
                                     )
