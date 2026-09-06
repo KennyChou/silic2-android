@@ -249,6 +249,7 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
                     isRecording = true,
                     statusMessage = "野外即時聽音與滾動頻譜分析中...",
                     latestWavFilePath = wavFile.absolutePath,
+                    detections = emptyList(),
                     rollingDetections = emptyList()
                 )
             }
@@ -586,11 +587,19 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun playSessionClip(session: RecordingSession, detection: SilicDetection) {
+        val totalMs = (session.durationSec * 1000).toLong()
+        // 前後增加 600ms 緩衝，並保證至少播放 1.5 秒以聽取完整叫聲上下文
+        val clipStart = max(0L, detection.timeBeginMs - 600L)
+        val clipEnd = min(totalMs, max(clipStart + 1500L, detection.timeEndMs + 600L))
         playbackManager.playWavFile(
             file = session.wavFile,
-            startMs = detection.timeBeginMs,
-            endMs = detection.timeEndMs
+            startMs = clipStart,
+            endMs = clipEnd
         )
+    }
+
+    fun seekPlayback(positionMs: Long) {
+        playbackManager.seekTo(positionMs)
     }
 
     fun shareFile(context: Context, file: java.io.File, mimeType: String, chooserTitle: String) {

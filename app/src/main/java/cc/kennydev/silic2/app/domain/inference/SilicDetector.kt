@@ -74,6 +74,7 @@ class SilicDetector(private val context: Context) {
         return freq.toInt().coerceIn(fMin.toInt(), fMax.toInt())
     }
 
+    @Synchronized
     fun detect(
         bitmap: Bitmap,
         clipStartMs: Long,

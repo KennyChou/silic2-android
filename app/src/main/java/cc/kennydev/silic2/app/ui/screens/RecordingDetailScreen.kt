@@ -178,6 +178,12 @@ fun RecordingDetailScreen(
                             onSelectDetection = { det ->
                                 selectedDet = det
                                 viewModel.playSessionClip(session, det)
+                            },
+                            onSeekTime = { seekMs ->
+                                if (!playbackState.isPlaying) {
+                                    viewModel.playSession(session)
+                                }
+                                viewModel.seekPlayback(seekMs)
                             }
                         )
                     } else {
@@ -236,15 +242,24 @@ fun RecordingDetailScreen(
                             }
                         }
 
-                        // 進度條
-                        LinearProgressIndicator(
-                            progress = { playbackState.progress },
+                        // 互動進度條 (支援拖曳與點擊跳轉)
+                        Slider(
+                            value = playbackState.progress.coerceIn(0f, 1f),
+                            onValueChange = { newProg ->
+                                val targetMs = (newProg * session.durationSec * 1000).toLong()
+                                if (!playbackState.isPlaying) {
+                                    viewModel.playSession(session)
+                                }
+                                viewModel.seekPlayback(targetMs)
+                            },
+                            colors = SliderDefaults.colors(
+                                thumbColor = SilicGreen,
+                                activeTrackColor = SilicGreen,
+                                inactiveTrackColor = Color(0xFF22382E)
+                            ),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 10.dp)
-                                .height(6.dp),
-                            color = SilicGreen,
-                            trackColor = Color(0xFF22382E)
+                                .height(32.dp)
                         )
                     }
                 }
@@ -331,7 +346,8 @@ private fun HistoricalSpectrogramView(
     currentPlayPosMs: Long,
     isPlaying: Boolean,
     selectedDetection: SilicDetection?,
-    onSelectDetection: (SilicDetection) -> Unit
+    onSelectDetection: (SilicDetection) -> Unit,
+    onSeekTime: (Long) -> Unit
 ) {
     val imageBitmap = remember(bitmap) { bitmap.asImageBitmap() }
 
@@ -359,10 +375,13 @@ private fun HistoricalSpectrogramView(
                             val x2 = (det.timeEndMs.toFloat() / durationMs) * size.width
                             val yTop = freqToY(det.freqHighHz.toDouble(), size.height.toFloat())
                             val yBottom = freqToY(det.freqLowHz.toDouble(), size.height.toFloat())
-                            offset.x in x1..x2 && offset.y in yTop..yBottom
+                            offset.x in (x1 - 10f)..(x2 + 10f) && offset.y in yTop..yBottom
                         }
                         if (clickedDet != null) {
                             onSelectDetection(clickedDet)
+                        } else {
+                            val targetMs = (offset.x / size.width * durationMs).toLong().coerceIn(0L, durationMs)
+                            onSeekTime(targetMs)
                         }
                     }
                 }
@@ -401,7 +420,7 @@ private fun HistoricalSpectrogramView(
 
                     // 框體半透明填滿
                     drawRect(
-                        color = boxColor.copy(alpha = if (isSelected) 0.40f else 0.20f),
+                        color = boxColor.copy(alpha = if (isSelected) 0.45f else 0.20f),
                         topLeft = Offset(x1, yTop),
                         size = Size(boxWidth, boxHeight)
                     )
@@ -439,20 +458,28 @@ private fun HistoricalSpectrogramView(
                 }
             }
 
-            // 3. 發光播放時間軸指針 (Playhead Line)
-            if (isPlaying && durationMs > 0) {
+            // 3. 發光播放時間軸指針 (Playhead Line - 無論播放中或暫停都清晰可見)
+            if (durationMs > 0 && (isPlaying || currentPlayPosMs > 0)) {
                 val playX = (currentPlayPosMs.toFloat() / durationMs * canvasWidth).coerceIn(0f, canvasWidth)
+                // 外部微光外暈
                 drawLine(
-                    color = SilicGreen,
+                    color = SilicGreen.copy(alpha = if (isPlaying) 0.50f else 0.25f),
                     start = Offset(playX, 0f),
                     end = Offset(playX, canvasHeight),
-                    strokeWidth = 3f
+                    strokeWidth = 6f
                 )
-                // 指針頂部微型倒三角指示
+                // 核心指示線
+                drawLine(
+                    color = if (isPlaying) Color.White else SilicGreen,
+                    start = Offset(playX, 0f),
+                    end = Offset(playX, canvasHeight),
+                    strokeWidth = 2.5f
+                )
+                // 指針頂部圓球標記
                 drawCircle(
-                    color = Color.White,
-                    radius = 4.5f,
-                    center = Offset(playX, 6f)
+                    color = if (isPlaying) Color.White else SilicGreen,
+                    radius = 5.5f,
+                    center = Offset(playX, 7f)
                 )
             }
 
