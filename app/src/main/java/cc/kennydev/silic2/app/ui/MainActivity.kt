@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import android.widget.Toast
@@ -55,6 +56,10 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "需要麥克風錄音權限以進行聲音辨識", Toast.LENGTH_LONG).show()
         }
     }
+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ -> }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -231,12 +236,29 @@ class MainActivity : ComponentActivity() {
     }
 
     fun checkAndStartRecording() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED
         ) {
             viewModel.startListening()
         } else {
             requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        val state = viewModel.uiState.value
+        // 若未開啟背景聽音，退出到背景或按電源鍵時自動安全存檔並停止，防手機在背景過熱
+        if (state.isRecording && !state.enableBackgroundRecording) {
+            viewModel.stopListening("已退到背景，自動安全存檔以防耗電與過熱")
         }
     }
 

@@ -37,6 +37,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import android.os.Build
+import cc.kennydev.silic2.app.service.RecordingForegroundService
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.text.SimpleDateFormat
@@ -58,7 +62,10 @@ data class SilicUiState(
     val rollingDetections: List<SilicDetection> = emptyList(),
     val selectedDetection: SilicDetection? = null,
     val latestWavFilePath: String? = null,
-    val isGrayscale: Boolean = true
+    val isGrayscale: Boolean = true,
+    val enableBackgroundRecording: Boolean = false,
+    val maxDurationMinutes: Int = 60,
+    val autoStopLowBattery: Boolean = true
 )
 
 class SilicViewModel(application: Application) : AndroidViewModel(application) {
@@ -113,12 +120,29 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
     private var currentClipSamples: ShortArray? = null
     private var currentWavFile: File? = null
 
+    private val autoStopReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == RecordingForegroundService.BROADCAST_AUTO_STOPPED) {
+                val reason = intent.getStringExtra(RecordingForegroundService.EXTRA_STOP_REASON) ?: "安全保護自動停止"
+                stopListening(reason)
+            }
+        }
+    }
+
     init {
         _uiState.update {
             it.copy(
                 isModelLoaded = detector.isModelLoaded,
                 statusMessage = if (detector.isModelLoaded) "模型已載入，支援 398 類聲音" else "模型載入中..."
             )
+        }
+
+        // 註冊服務逾時/低電量自動停止廣播
+        val filter = IntentFilter(RecordingForegroundService.BROADCAST_AUTO_STOPPED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            application.registerReceiver(autoStopReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            application.registerReceiver(autoStopReceiver, filter)
         }
 
         // 啟動 30fps 滾動頻譜刷新迴圈
@@ -135,6 +159,24 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 delay(33) // ~30 fps
+            }
+        }
+    }
+
+    fun updateBackgroundSettings(enableBg: Boolean, maxMinutes: Int, lowBattery: Boolean) {
+        _uiState.update {
+            it.copy(
+                enableBackgroundRecording = enableBg,
+                maxDurationMinutes = maxMinutes,
+                autoStopLowBattery = lowBattery
+            )
+        }
+        if (_uiState.value.isRecording) {
+            val app = getApplication<Application>()
+            if (enableBg) {
+                RecordingForegroundService.start(app, maxMinutes, lowBattery)
+            } else {
+                RecordingForegroundService.stop(app)
             }
         }
     }
@@ -171,6 +213,13 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
 
         val success = audioRecorder?.start() ?: false
         if (success) {
+            if (_uiState.value.enableBackgroundRecording) {
+                RecordingForegroundService.start(
+                    getApplication(),
+                    _uiState.value.maxDurationMinutes,
+                    _uiState.value.autoStopLowBattery
+                )
+            }
             _uiState.update {
                 it.copy(
                     isRecording = true,
@@ -187,7 +236,8 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
         return success
     }
 
-    fun stopListening() {
+    fun stopListening(stopReason: String? = null) {
+        RecordingForegroundService.stop(getApplication())
         audioRecorder?.stop()
         audioRecorder = null
         val wav = currentWavFile
@@ -206,7 +256,7 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
             it.copy(
                 isRecording = false,
                 amplitude = 0f,
-                statusMessage = if (wav != null) "已儲存錄音與標記: ${wav.nameWithoutExtension} (.wav / .txt / .csv)" else "監聽已停止"
+                statusMessage = stopReason ?: if (wav != null) "已儲存錄音與標記: ${wav.nameWithoutExtension} (.wav / .txt / .csv)" else "監聽已停止"
             )
         }
     }
@@ -655,6 +705,9 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         super.onCleared()
+        try {
+            getApplication<Application>().unregisterReceiver(autoStopReceiver)
+        } catch (_: Exception) { }
         stopListening()
         stopPlayback()
         detector.close()

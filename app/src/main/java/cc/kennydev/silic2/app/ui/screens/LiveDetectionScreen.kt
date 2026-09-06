@@ -31,8 +31,10 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Tune
+import cc.kennydev.silic2.app.ui.components.BackgroundSettingsDialog
 import cc.kennydev.silic2.app.ui.components.ConfidenceThresholdDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -91,6 +93,7 @@ fun LiveDetectionScreen(
 
     var showShareMenu by remember { mutableStateOf(false) }
     var showConfThresholdDialog by remember { mutableStateOf(false) }
+    var showBgSettingsDialog by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -167,6 +170,21 @@ fun LiveDetectionScreen(
                                 onClick = {
                                     showShareMenu = false
                                     showConfThresholdDialog = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (uiState.enableBackgroundRecording)
+                                            "背景聽音：🛡️ 開啟中 (${uiState.maxDurationMinutes}分保護)"
+                                        else
+                                            "背景聽音：🔒 關閉 (防過熱安全模式)"
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Default.Shield, contentDescription = null, tint = if (uiState.enableBackgroundRecording) TealAccent else Color(0xFFFFB74D)) },
+                                onClick = {
+                                    showShareMenu = false
+                                    showBgSettingsDialog = true
                                 }
                             )
                             DropdownMenuItem(
@@ -485,6 +503,18 @@ fun LiveDetectionScreen(
                 viewModel.setConfThreshold(newThreshold)
             },
             onDismiss = { showConfThresholdDialog = false }
+        )
+    }
+
+    if (showBgSettingsDialog) {
+        BackgroundSettingsDialog(
+            enableBackgroundRecording = uiState.enableBackgroundRecording,
+            maxDurationMinutes = uiState.maxDurationMinutes,
+            autoStopLowBattery = uiState.autoStopLowBattery,
+            onSettingsChanged = { enableBg, maxMinutes, lowBattery ->
+                viewModel.updateBackgroundSettings(enableBg, maxMinutes, lowBattery)
+            },
+            onDismiss = { showBgSettingsDialog = false }
         )
     }
 }
