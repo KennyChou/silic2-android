@@ -105,6 +105,8 @@ class MainActivity : ComponentActivity() {
                                     SpeciesFilterScreen(
                                         allClasses = viewModel.allSoundClasses,
                                         selectedIds = uiState.targetClassIds,
+                                        confThreshold = uiState.confThreshold,
+                                        onSetConfThreshold = { thresh -> viewModel.setConfThreshold(thresh) },
                                         onToggleClass = { id -> viewModel.toggleTargetClass(id) },
                                         onSelectMultiple = { ids -> viewModel.selectMultipleClasses(ids) },
                                         onDeselectMultiple = { ids -> viewModel.deselectMultipleClasses(ids) },

@@ -32,6 +32,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Tune
+import cc.kennydev.silic2.app.ui.components.ConfidenceThresholdDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -88,6 +90,7 @@ fun LiveDetectionScreen(
     val context = LocalContext.current
 
     var showShareMenu by remember { mutableStateOf(false) }
+    var showConfThresholdDialog by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -156,6 +159,14 @@ fun LiveDetectionScreen(
                                 onClick = {
                                     showShareMenu = false
                                     viewModel.toggleSpectrogramColorMode()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("信賴門檻：${(uiState.confThreshold * 100).toInt()}% (點擊設定)") },
+                                leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null, tint = SilicGreen) },
+                                onClick = {
+                                    showShareMenu = false
+                                    showConfThresholdDialog = true
                                 }
                             )
                             DropdownMenuItem(
@@ -491,5 +502,15 @@ fun LiveDetectionScreen(
                 }
             }
         }
+    }
+
+    if (showConfThresholdDialog) {
+        ConfidenceThresholdDialog(
+            currentThreshold = uiState.confThreshold,
+            onThresholdChanged = { newThreshold ->
+                viewModel.setConfThreshold(newThreshold)
+            },
+            onDismiss = { showConfThresholdDialog = false }
+        )
     }
 }

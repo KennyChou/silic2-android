@@ -63,12 +63,15 @@ import cc.kennydev.silic2.app.ui.theme.TealAccent
 import cc.kennydev.silic2.app.ui.theme.TextPrimary
 import cc.kennydev.silic2.app.ui.theme.TextSecondary
 import cc.kennydev.silic2.app.ui.theme.TextTertiary
+import cc.kennydev.silic2.app.ui.components.ConfidenceThresholdDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpeciesFilterScreen(
     allClasses: List<SoundClass>,
     selectedIds: Set<Int>,
+    confThreshold: Float = 0.20f,
+    onSetConfThreshold: (Float) -> Unit = {},
     onToggleClass: (Int) -> Unit,
     onSelectMultiple: (List<Int>) -> Unit,
     onDeselectMultiple: (List<Int>) -> Unit,
@@ -78,6 +81,7 @@ fun SpeciesFilterScreen(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(AnimalCategory.ALL) }
+    var showConfDialog by remember { mutableStateOf(false) }
 
     // 依大分類與搜尋字串雙重過濾
     val filteredList = remember(searchQuery, selectedCategory, allClasses) {
@@ -232,12 +236,22 @@ fun SpeciesFilterScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (selectedIds.isEmpty()) "模式：聆聽全部聲音" else "已勾選 ${selectedIds.size} 種",
-                    fontSize = 13.sp,
-                    color = if (selectedIds.isEmpty()) SilicGreen else TealAccent,
-                    fontWeight = FontWeight.Medium
-                )
+                Column {
+                    Text(
+                        text = if (selectedIds.isEmpty()) "模式：聆聽全部聲音" else "已勾選 ${selectedIds.size} 種",
+                        fontSize = 13.sp,
+                        color = if (selectedIds.isEmpty()) SilicGreen else TealAccent,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "門檻：${(confThreshold * 100).toInt()}% (點此調整)",
+                        fontSize = 11.sp,
+                        color = SilicGreen,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.clickable { showConfDialog = true }
+                    )
+                }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     val currentListIds = remember(filteredList) { filteredList.map { it.soundclassId } }
@@ -341,6 +355,14 @@ fun SpeciesFilterScreen(
                 }
             }
         }
+    }
+
+    if (showConfDialog) {
+        ConfidenceThresholdDialog(
+            currentThreshold = confThreshold,
+            onThresholdChanged = onSetConfThreshold,
+            onDismiss = { showConfDialog = false }
+        )
     }
 }
 
