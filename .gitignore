@@ -4,6 +4,9 @@ build/
 local.properties
 *.iml
 
+# 上架金鑰設定（含密碼，嚴禁提交）
+key.properties
+
 # Kotlin
 .kotlin/
 
