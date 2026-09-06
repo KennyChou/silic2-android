@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
@@ -37,6 +38,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -78,7 +80,8 @@ import cc.kennydev.silic2.app.ui.theme.TextTertiary
 fun LiveDetectionScreen(
     viewModel: SilicViewModel,
     onNavigateToFilter: () -> Unit,
-    onNavigateToRecordings: () -> Unit
+    onNavigateToRecordings: () -> Unit,
+    onNavigateToAbout: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
@@ -223,6 +226,16 @@ fun LiveDetectionScreen(
                                     }
                                 )
                             }
+
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("關於 SILIC 2") },
+                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null, tint = TealAccent) },
+                                onClick = {
+                                    showShareMenu = false
+                                    onNavigateToAbout()
+                                }
+                            )
                         }
                     }
                 },

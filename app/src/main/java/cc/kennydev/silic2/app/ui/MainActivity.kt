@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
+import cc.kennydev.silic2.app.ui.screens.AboutScreen
 import cc.kennydev.silic2.app.ui.screens.LiveDetectionScreen
 import cc.kennydev.silic2.app.ui.screens.RecordingDetailScreen
 import cc.kennydev.silic2.app.ui.screens.RecordingsListScreen
@@ -84,6 +85,7 @@ class MainActivity : ComponentActivity() {
                             Screen.Filter -> currentScreen = Screen.Live
                             Screen.Recordings -> currentScreen = Screen.Live
                             Screen.Detail -> currentScreen = Screen.Recordings
+                            Screen.About -> currentScreen = Screen.Live
                             Screen.Live -> { }
                         }
                     }
@@ -95,7 +97,8 @@ class MainActivity : ComponentActivity() {
                                     LiveDetectionScreen(
                                         viewModel = viewModel,
                                         onNavigateToFilter = { currentScreen = Screen.Filter },
-                                        onNavigateToRecordings = { currentScreen = Screen.Recordings }
+                                        onNavigateToRecordings = { currentScreen = Screen.Recordings },
+                                        onNavigateToAbout = { currentScreen = Screen.About }
                                     )
                                 }
                                 Screen.Filter -> {
@@ -130,6 +133,9 @@ class MainActivity : ComponentActivity() {
                                     } else {
                                         currentScreen = Screen.Recordings
                                     }
+                                }
+                                Screen.About -> {
+                                    AboutScreen(onBack = { currentScreen = Screen.Live })
                                 }
                             }
                         }
@@ -228,6 +234,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private enum class Screen {
-        Live, Filter, Recordings, Detail
+        Live, Filter, Recordings, Detail, About
     }
 }
