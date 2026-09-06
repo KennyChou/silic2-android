@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Tune
+import cc.kennydev.silic2.app.ui.MainActivity
 import cc.kennydev.silic2.app.ui.components.BackgroundSettingsDialog
 import cc.kennydev.silic2.app.ui.components.ConfidenceThresholdDialog
 import androidx.compose.material3.Badge
@@ -513,6 +514,9 @@ fun LiveDetectionScreen(
             autoStopLowBattery = uiState.autoStopLowBattery,
             onSettingsChanged = { enableBg, maxMinutes, lowBattery ->
                 viewModel.updateBackgroundSettings(enableBg, maxMinutes, lowBattery)
+                if (enableBg) {
+                    (context as? MainActivity)?.requestNotificationPermissionIfNeeded()
+                }
             },
             onDismiss = { showBgSettingsDialog = false }
         )

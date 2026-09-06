@@ -120,6 +120,15 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
     private var currentClipSamples: ShortArray? = null
     private var currentWavFile: File? = null
 
+    private val prefs = application.getSharedPreferences("silic2_settings", Context.MODE_PRIVATE)
+
+    companion object {
+        private const val PREF_ENABLE_BG_RECORDING = "enable_bg_recording"
+        private const val PREF_MAX_DURATION_MINUTES = "max_duration_minutes"
+        private const val PREF_AUTO_STOP_LOW_BATTERY = "auto_stop_low_battery"
+        private const val PREF_CONF_THRESHOLD = "conf_threshold"
+    }
+
     private val autoStopReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == RecordingForegroundService.BROADCAST_AUTO_STOPPED) {
@@ -130,10 +139,19 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
+        val savedEnableBg = prefs.getBoolean(PREF_ENABLE_BG_RECORDING, false)
+        val savedMaxMinutes = prefs.getInt(PREF_MAX_DURATION_MINUTES, 60)
+        val savedAutoStopBattery = prefs.getBoolean(PREF_AUTO_STOP_LOW_BATTERY, true)
+        val savedConfThreshold = prefs.getFloat(PREF_CONF_THRESHOLD, 0.20f)
+
         _uiState.update {
             it.copy(
                 isModelLoaded = detector.isModelLoaded,
-                statusMessage = if (detector.isModelLoaded) "模型已載入，支援 398 類聲音" else "模型載入中..."
+                statusMessage = if (detector.isModelLoaded) "模型已載入，支援 398 類聲音" else "模型載入中...",
+                enableBackgroundRecording = savedEnableBg,
+                maxDurationMinutes = savedMaxMinutes,
+                autoStopLowBattery = savedAutoStopBattery,
+                confThreshold = savedConfThreshold
             )
         }
 
@@ -164,6 +182,12 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateBackgroundSettings(enableBg: Boolean, maxMinutes: Int, lowBattery: Boolean) {
+        prefs.edit()
+            .putBoolean(PREF_ENABLE_BG_RECORDING, enableBg)
+            .putInt(PREF_MAX_DURATION_MINUTES, maxMinutes)
+            .putBoolean(PREF_AUTO_STOP_LOW_BATTERY, lowBattery)
+            .apply()
+
         _uiState.update {
             it.copy(
                 enableBackgroundRecording = enableBg,
@@ -383,6 +407,7 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setConfThreshold(threshold: Float) {
+        prefs.edit().putFloat(PREF_CONF_THRESHOLD, threshold).apply()
         _uiState.update { it.copy(confThreshold = threshold) }
     }
 

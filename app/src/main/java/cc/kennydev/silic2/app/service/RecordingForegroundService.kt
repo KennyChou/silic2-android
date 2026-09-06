@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
 class RecordingForegroundService : Service() {
 
     companion object {
-        const val CHANNEL_ID = "silic2_recording_channel"
+        const val CHANNEL_ID = "silic2_recording_channel_v2"
         const val NOTIFICATION_ID = 1001
 
         const val ACTION_START = "cc.kennydev.silic2.action.START_RECORDING_SERVICE"
@@ -137,12 +137,14 @@ class RecordingForegroundService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("SILIC 2 野外即時聽音中")
+            .setContentTitle("🎙️ 正在錄音中 (SILIC 2)")
             .setContentText(contentText)
-            .setSmallIcon(R.drawable.splash_icon)
+            .setSmallIcon(R.drawable.ic_stat_mic)
             .setContentIntent(openAppPendingIntent)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setTicker("🎙️ SILIC 2 正在錄音中")
             .addAction(
                 android.R.drawable.ic_media_pause,
                 "停止並存檔",
@@ -248,11 +250,11 @@ class RecordingForegroundService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "野外即時聽音錄音服務",
-                NotificationManager.IMPORTANCE_LOW
+                "SILIC 2 錄音通知",
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "SILIC 2 背景錄音與野生動物聲音監聽服務，支援螢幕關閉時持續聽音"
-                setShowBadge(false)
+                description = "SILIC 2 錄音與野生動物聲音監聽服務狀態通知"
+                setShowBadge(true)
             }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
             manager?.createNotificationChannel(channel)
