@@ -145,170 +145,175 @@ fun RecordingDetailScreen(
         },
         containerColor = DarkForestBg
     ) { paddingValues ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 14.dp)
         ) {
-            item { Spacer(modifier = Modifier.height(4.dp)) }
+            Spacer(modifier = Modifier.height(2.dp))
 
-            // 1. 歷史全段頻譜圖 (帶標籤框與發光播放游標)
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(230.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0F0D))
-                ) {
-                    if (isLoading) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = SilicGreen)
-                        }
-                    } else if (spectrogramBitmap != null) {
-                        HistoricalSpectrogramView(
-                            bitmap = spectrogramBitmap!!,
-                            durationMs = (session.durationSec * 1000).toLong(),
-                            detections = session.detections,
-                            currentPlayPosMs = playbackState.currentPositionMs,
-                            isPlaying = playbackState.isPlaying,
-                            selectedDetection = selectedDet,
-                            onSelectDetection = { det ->
-                                selectedDet = det
-                                viewModel.playSessionClip(session, det)
-                            },
-                            onSeekTime = { seekMs ->
-                                if (!playbackState.isPlaying) {
-                                    viewModel.playSession(session)
-                                }
-                                viewModel.seekPlayback(seekMs)
-                            }
-                        )
-                    } else {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("無頻譜資訊", color = TextSecondary)
-                        }
+            // 1. 歷史全段頻譜圖 (Fixed 固定在頂部，不隨下方清單滾動)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0F0D))
+            ) {
+                if (isLoading) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = SilicGreen)
                     }
-                }
-            }
-
-            // 2. 音訊播放控制器
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF16211D))
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val curSec = (playbackState.currentPositionMs / 1000).toInt()
-                            val totSec = session.durationSec.toInt()
-                            Text(
-                                text = String.format(java.util.Locale.getDefault(), "%02d:%02d / %02d:%02d", curSec / 60, curSec % 60, totSec / 60, totSec % 60),
-                                fontSize = 12.sp,
-                                color = TextSecondary,
-                                fontWeight = FontWeight.Medium
-                            )
-
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = {
-                                        if (playbackState.isPlaying) {
-                                            viewModel.stopPlayback()
-                                        } else {
-                                            viewModel.playSession(session)
-                                        }
-                                    },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (playbackState.isPlaying) Color(0xFFCF6679) else SilicGreen
-                                    ),
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(if (playbackState.isPlaying) "暫停" else "播放全曲", fontSize = 12.sp)
-                                }
-                            }
-                        }
-
-                        // 互動進度條 (支援拖曳與點擊跳轉)
-                        Slider(
-                            value = playbackState.progress.coerceIn(0f, 1f),
-                            onValueChange = { newProg ->
-                                val targetMs = (newProg * session.durationSec * 1000).toLong()
-                                if (!playbackState.isPlaying) {
-                                    viewModel.playSession(session)
-                                }
-                                viewModel.seekPlayback(targetMs)
-                            },
-                            colors = SliderDefaults.colors(
-                                thumbColor = SilicGreen,
-                                activeTrackColor = SilicGreen,
-                                inactiveTrackColor = Color(0xFF22382E)
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(32.dp)
-                        )
-                    }
-                }
-            }
-
-            // 3. 物種紀錄標題
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "物種辨識紀錄 (${session.detections.size})",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                    Text(
-                        text = "點擊「▶」試聽片段並高亮標記",
-                        fontSize = 11.sp,
-                        color = TealAccent
-                    )
-                }
-            }
-
-            // 4. 物種卡片清單
-            if (session.detections.isEmpty()) {
-                item {
-                    Text(
-                        text = "此錄音無高於門檻之物種辨識紀錄",
-                        fontSize = 13.sp,
-                        color = TextSecondary,
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
-                }
-            } else {
-                items(session.detections) { det ->
-                    DetectionCard(
-                        detection = det,
-                        onPlayClip = {
+                } else if (spectrogramBitmap != null) {
+                    HistoricalSpectrogramView(
+                        bitmap = spectrogramBitmap!!,
+                        durationMs = (session.durationSec * 1000).toLong(),
+                        detections = session.detections,
+                        currentPlayPosMs = playbackState.currentPositionMs,
+                        isPlaying = playbackState.isPlaying,
+                        selectedDetection = selectedDet,
+                        onSelectDetection = { det ->
                             selectedDet = det
                             viewModel.playSessionClip(session, det)
+                        },
+                        onSeekTime = { seekMs ->
+                            if (!playbackState.isPlaying) {
+                                viewModel.playSession(session)
+                            }
+                            viewModel.seekPlayback(seekMs)
                         }
+                    )
+                } else {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("無頻譜資訊", color = TextSecondary)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 2. 音訊播放控制器 (Fixed 固定在頂部)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF16211D))
+            ) {
+                Column(modifier = Modifier.padding(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val curSec = (playbackState.currentPositionMs / 1000).toInt()
+                        val totSec = session.durationSec.toInt()
+                        Text(
+                            text = String.format(java.util.Locale.getDefault(), "%02d:%02d / %02d:%02d", curSec / 60, curSec % 60, totSec / 60, totSec % 60),
+                            fontSize = 12.sp,
+                            color = TextSecondary,
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        Button(
+                            onClick = {
+                                if (playbackState.isPlaying) {
+                                    viewModel.stopPlayback()
+                                } else {
+                                    viewModel.playSession(session)
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (playbackState.isPlaying) Color(0xFFCF6679) else SilicGreen
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(if (playbackState.isPlaying) "暫停" else "播放全曲", fontSize = 12.sp)
+                        }
+                    }
+
+                    // 互動進度條 (支援拖曳與點選跳轉)
+                    Slider(
+                        value = playbackState.progress.coerceIn(0f, 1f),
+                        onValueChange = { newProg ->
+                            val targetMs = (newProg * session.durationSec * 1000).toLong()
+                            if (!playbackState.isPlaying) {
+                                viewModel.playSession(session)
+                            }
+                            viewModel.seekPlayback(targetMs)
+                        },
+                        colors = SliderDefaults.colors(
+                            thumbColor = SilicGreen,
+                            activeTrackColor = SilicGreen,
+                            inactiveTrackColor = Color(0xFF22382E)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(28.dp)
                     )
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(24.dp)) }
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 3. 物種紀錄標題
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "物種辨識紀錄 (${session.detections.size})",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Text(
+                    text = "點擊「▶」試聽並高亮頻譜",
+                    fontSize = 11.sp,
+                    color = TealAccent
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // 4. 物種卡片清單 (獨立在下方滑動，不受頂部頻譜圖影響)
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (session.detections.isEmpty()) {
+                    item {
+                        Text(
+                            text = "此錄音無高於門檻之物種辨識紀錄",
+                            fontSize = 13.sp,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    }
+                } else {
+                    items(session.detections) { det ->
+                        DetectionCard(
+                            detection = det,
+                            onPlayClip = {
+                                selectedDet = det
+                                viewModel.playSessionClip(session, det)
+                            }
+                        )
+                    }
+                }
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+            }
         }
     }
 
