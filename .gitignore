@@ -1,0 +1,25 @@
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.iml
+
+# Kotlin
+.kotlin/
+
+# IDE
+.idea/
+*.swp
+*~
+
+# TFLite 模型（太大，不適合放 git）
+# 請使用 export_tflite_model.py 自行從上游模型匯出
+app/src/main/assets/best_float32.tflite
+app/src/main/assets/best_int8.tflite
+
+# PCM 測試樣本
+app/src/main/assets/sample_owl.pcm
+
+# OS
+.DS_Store
+Thumbs.db
