@@ -33,12 +33,12 @@ fun gitVersionName(): String =
 
 android {
     namespace = "cc.kennydev.silic2.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "cc.kennydev.silic2.app"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = gitVersionCode()
         versionName = gitVersionName()
 
