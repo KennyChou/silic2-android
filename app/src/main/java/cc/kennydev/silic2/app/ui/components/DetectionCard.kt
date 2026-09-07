@@ -108,6 +108,12 @@ fun DetectionCard(
                     }
 
                     Text(
+                        text = "信心分數",
+                        fontSize = 12.sp,
+                        color = TextTertiary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
                         text = detection.formattedConfidence,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,

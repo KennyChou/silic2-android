@@ -73,12 +73,6 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(SilicUiState())
     val uiState: StateFlow<SilicUiState> = _uiState.asStateFlow()
 
-    fun toggleSpectrogramColorMode() {
-        val next = !rollingProcessor.isGrayscale
-        rollingProcessor.isGrayscale = next
-        _uiState.update { it.copy(isGrayscale = next) }
-    }
-
     private val melConverter = MelSpectrogramConverter()
     private val rainbowRenderer = RainbowRenderer()
     private val detector = SilicDetector(application.applicationContext)
@@ -403,6 +397,11 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(selectedDetection = null) }
     }
 
+    fun stopPlaybackAndResetPosition() {
+        playbackManager.resetPosition()
+        _uiState.update { it.copy(selectedDetection = null) }
+    }
+
     fun selectDetection(detection: SilicDetection?) {
         _uiState.update { it.copy(selectedDetection = detection) }
     }
@@ -573,7 +572,7 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
         _currentDetailSession.value = session
         _detailSpectrogramBitmap.value = null
         _detailIsLoading.value = true
-        stopPlayback()
+        stopPlaybackAndResetPosition()
 
         viewModelScope.launch(Dispatchers.Default) {
             val bmp = wavSpectrogramGenerator.generateGrayscaleSpectrogram(session.wavFile)
@@ -582,8 +581,8 @@ class SilicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun playSession(session: RecordingSession) {
-        playbackManager.playWavFile(session.wavFile)
+    fun playSession(session: RecordingSession, startAtMs: Long = 0L) {
+        playbackManager.playWavFile(session.wavFile, startMs = startAtMs)
     }
 
     fun playSessionClip(session: RecordingSession, detection: SilicDetection) {

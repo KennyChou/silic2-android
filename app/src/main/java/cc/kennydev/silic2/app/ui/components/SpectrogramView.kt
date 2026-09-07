@@ -21,12 +21,12 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cc.kennydev.silic2.app.data.model.AnimalCategory
 import cc.kennydev.silic2.app.data.model.SilicDetection
 import cc.kennydev.silic2.app.ui.theme.DarkForestBg
 import cc.kennydev.silic2.app.ui.theme.ForestSurface
@@ -99,7 +99,7 @@ fun SpectrogramView(
                 for (f in gridFreqs) {
                     val y = freqToY(f)
                     drawLine(
-                        color = Color.White.copy(alpha = 0.15f),
+                        color = Color.Black.copy(alpha = 0.15f),
                         start = Offset(0f, y),
                         end = Offset(canvasWidth, y),
                         strokeWidth = 1f
@@ -126,13 +126,7 @@ fun SpectrogramView(
                     val yBottom = freqToY(det.freqLowHz.toDouble()).coerceIn(0f, canvasHeight)
                     val boxHeight = max(8f, yBottom - yTop)
 
-                    val boxColor = when (det.category) {
-                        AnimalCategory.BIRD -> Color(0xFF00E676)
-                        AnimalCategory.FROG -> Color(0xFF00E5FF)
-                        AnimalCategory.MAMMAL -> Color(0xFFFFAB40)
-                        AnimalCategory.OTHER -> Color(0xFFE040FB)
-                        AnimalCategory.ALL -> Color.White
-                    }
+                    val boxColor = confidenceToColor(det.confidence)
 
                     // 框體半透明填充
                     drawRect(
@@ -143,7 +137,7 @@ fun SpectrogramView(
 
                     // 框體邊線
                     drawRect(
-                        color = if (isSelected) Color.White else boxColor,
+                        color = if (isSelected) Color.Black else boxColor,
                         topLeft = Offset(x1, yTop),
                         size = Size(boxWidth, boxHeight),
                         style = Stroke(width = if (isSelected) 3f else 1.8f)
@@ -152,25 +146,54 @@ fun SpectrogramView(
                     // 標籤文字 (使用 nativeCanvas 繪製)
                     drawContext.canvas.nativeCanvas.apply {
                         val paintBg = android.graphics.Paint().apply {
-                            color = android.graphics.Color.argb(220, 20, 30, 25)
+                            color = android.graphics.Color.argb(225, 18, 28, 24)
                             style = android.graphics.Paint.Style.FILL
                         }
                         val paintText = android.graphics.Paint().apply {
                             color = android.graphics.Color.WHITE
-                            textSize = 28f
+                            textSize = 26f
+                            isAntiAlias = true
+                            typeface = android.graphics.Typeface.DEFAULT_BOLD
+                        }
+                        val paintConfLabel = android.graphics.Paint().apply {
+                            color = android.graphics.Color.argb(190, 180, 215, 205)
+                            textSize = 18f
+                            isAntiAlias = true
+                            typeface = android.graphics.Typeface.DEFAULT
+                        }
+                        val paintConfScore = android.graphics.Paint().apply {
+                            color = android.graphics.Color.WHITE
+                            textSize = 22f
                             isAntiAlias = true
                             typeface = android.graphics.Typeface.DEFAULT_BOLD
                         }
 
-                        val labelText = "${det.speciesName} ${det.soundClass} ${(det.confidence * 100).toInt()}%"
-                        val textWidth = paintText.measureText(labelText)
-                        val tagHeight = 36f
+                        val speciesAndSound = if (det.soundClass.isNotBlank()) "${det.speciesName} ${det.soundClass}" else det.speciesName
+                        val confLabel = "信心分數"
+                        val confScore = String.format(java.util.Locale.US, "%.2f", det.confidence)
 
+                        val mainWidth = paintText.measureText(speciesAndSound)
+                        val confLabelWidth = paintConfLabel.measureText(confLabel)
+                        val confScoreWidth = paintConfScore.measureText(confScore)
+
+                        val tagHeight = 36f
                         val tagY = if (yTop - tagHeight < 0f) yTop + tagHeight else yTop
                         val tagTop = tagY - tagHeight
 
-                        drawRect(x1, tagTop, x1 + textWidth + 12f, tagY, paintBg)
-                        drawText(labelText, x1 + 6f, tagY - 8f, paintText)
+                        val startX = x1 + 8f
+                        val confLabelX = startX + mainWidth + 8f
+                        val confScoreX = confLabelX + confLabelWidth + 4f
+                        val totalTagWidth = (confScoreX + confScoreWidth + 8f) - x1
+
+                        val tagRect = android.graphics.RectF(x1, tagTop, x1 + totalTagWidth, tagY)
+                        drawRoundRect(tagRect, 6f, 6f, paintBg)
+
+                        // 繪製物種與聲音類別
+                        drawText(speciesAndSound, startX, tagY - 9f, paintText)
+                        // 繪製較小字級的信心分數 Label
+                        drawText(confLabel, confLabelX, tagY - 9f, paintConfLabel)
+                        // 繪製小數點數值
+                        drawText(confScore, confScoreX, tagY - 9f, paintConfScore)
                     }
                 }
 
@@ -179,14 +202,14 @@ fun SpectrogramView(
                     val playX = canvasWidth * playheadProgress
                     // 光暈線
                     drawLine(
-                        color = SilicGreen.copy(alpha = 0.4f),
+                        color = SilicGreen.copy(alpha = 0.5f),
                         start = Offset(playX, 0f),
                         end = Offset(playX, canvasHeight),
                         strokeWidth = 6f
                     )
                     // 核心線
                     drawLine(
-                        color = Color.White,
+                        color = Color.Black,
                         start = Offset(playX, 0f),
                         end = Offset(playX, canvasHeight),
                         strokeWidth = 2f
@@ -196,7 +219,7 @@ fun SpectrogramView(
                 // 5. 繪製頻率參考文字刻度 (左上與左下)
                 drawContext.canvas.nativeCanvas.apply {
                     val axisPaint = android.graphics.Paint().apply {
-                        color = android.graphics.Color.argb(180, 200, 220, 210)
+                        color = android.graphics.Color.argb(200, 40, 55, 48)
                         textSize = 22f
                         isAntiAlias = true
                     }
@@ -211,5 +234,15 @@ fun SpectrogramView(
                 }
             }
         }
+    }
+}
+
+// 依信心分數標記框體顏色：低分紅、中段黃、高分綠
+private fun confidenceToColor(confidence: Float): Color {
+    val t = confidence.coerceIn(0f, 1f)
+    return if (t < 0.5f) {
+        lerp(Color(0xFFFF5252), Color(0xFFFFD740), t / 0.5f)
+    } else {
+        lerp(Color(0xFFFFD740), Color(0xFF00E676), (t - 0.5f) / 0.5f)
     }
 }

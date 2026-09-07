@@ -65,9 +65,12 @@ class WavSpectrogramGenerator(
         val totalSamples = shorts.size
         if (totalSamples < nFft) return null
 
-        // 自適應時間步長：螢幕寬度約 800~1000 像素，限制最大 1000 幀以確保 0.05 秒內極速渲染
-        val maxFrames = 1000
-        val effectiveHop = max(hopLength, (totalSamples - nFft) / maxFrames)
+        // 自適應時間步長：目標每秒 25 幀 (40ms/幀)，讓播放時捲動窗口切片仍夠細膩不頓格；
+        // 極長錄音以 12000 幀為記憶體/耗時上限，超過時解析度隨長度等比降低
+        val maxFrames = 12000
+        val targetHop = sampleRate / 25
+        val minHopForCap = (totalSamples - nFft) / maxFrames
+        val effectiveHop = max(hopLength, max(targetHop, minHopForCap))
         val totalFrames = max(1, (totalSamples - nFft) / effectiveHop + 1)
         val logMelMatrix = Array(nMels) { FloatArray(totalFrames) }
 
@@ -113,8 +116,8 @@ class WavSpectrogramGenerator(
             maxDb = 30f
         }
 
-        // 底噪壓暗基準 (40%)
-        val dbFloor = minDb + (maxDb - minDb) * 0.40f
+        // 底噪壓暗基準 (65%)：白色背景僅留明顯叫聲呈黑，傳統聲譜圖風格
+        val dbFloor = minDb + (maxDb - minDb) * 0.65f
         val dbRange = max(1.0f, maxDb - dbFloor)
 
         val bitmap = Bitmap.createBitmap(totalFrames, nMels, Bitmap.Config.ARGB_8888)
@@ -125,8 +128,8 @@ class WavSpectrogramGenerator(
                 val y = nMels - 1 - m // 高頻在頂，低頻在底
                 val log1 = logMelMatrix[m][f]
                 val norm = ((log1 - dbFloor) / dbRange).coerceIn(0f, 1f)
-                val gamma = Math.pow(norm.toDouble(), 1.4).toFloat()
-                val gray = (gamma * 255f).toInt().coerceIn(0, 255)
+                val gamma = Math.pow(norm.toDouble(), 1.8).toFloat()
+                val gray = (255f - gamma * 255f).toInt().coerceIn(0, 255)
                 pixels[y * totalFrames + f] = 0xFF000000.toInt() or (gray shl 16) or (gray shl 8) or gray
             }
         }

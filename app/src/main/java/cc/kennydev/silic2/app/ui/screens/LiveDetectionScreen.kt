@@ -159,14 +159,7 @@ fun LiveDetectionScreen(
                             onDismissRequest = { showShareMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text(if (uiState.isGrayscale) "頻譜色彩：🌓 科研黑白 (目前)" else "頻譜色彩：🌈 機器彩虹 (目前)") },
-                                onClick = {
-                                    showShareMenu = false
-                                    viewModel.toggleSpectrogramColorMode()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("信賴門檻：${(uiState.confThreshold * 100).toInt()}% (點擊設定)") },
+                                text = { Text("信心分數：${(uiState.confThreshold * 100).toInt()}% (點擊設定)") },
                                 leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null, tint = SilicGreen) },
                                 onClick = {
                                     showShareMenu = false
@@ -327,15 +320,6 @@ fun LiveDetectionScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("回放聲音", fontSize = 12.sp)
                         }
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedButton(
-                        onClick = { viewModel.toggleSpectrogramColorMode() },
-                        modifier = Modifier.height(34.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
-                    ) {
-                        Text(if (uiState.isGrayscale) "🌓 黑白聲譜" else "🌈 機器彩虹", fontSize = 11.sp)
                     }
                 }
 

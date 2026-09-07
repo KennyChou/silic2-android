@@ -78,6 +78,11 @@ class AudioPlaybackManager(
                 }
 
                 mp.setOnCompletionListener {
+                    // 自然播畢：明確把位置推到終點，避免最後一次輪詢的殘值略小於 totalDurationMs
+                    _playbackState.value = _playbackState.value.copy(
+                        currentPositionMs = totalDurationMs,
+                        progress = 1f
+                    )
                     stop()
                 }
 
@@ -277,5 +282,13 @@ class AudioPlaybackManager(
         audioTrack = null
 
         _playbackState.value = _playbackState.value.copy(isPlaying = false)
+    }
+
+    /**
+     * 停止播放並完全重設播放位置 (離開/切換錄音時使用，避免舊錄音的播放位置殘留)
+     */
+    fun resetPosition() {
+        stop()
+        _playbackState.value = PlaybackState()
     }
 }

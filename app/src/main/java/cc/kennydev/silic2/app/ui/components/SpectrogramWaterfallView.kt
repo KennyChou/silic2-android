@@ -22,13 +22,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cc.kennydev.silic2.app.data.model.AnimalCategory
 import cc.kennydev.silic2.app.data.model.SilicDetection
 import cc.kennydev.silic2.app.ui.theme.DarkForestBg
 import cc.kennydev.silic2.app.ui.theme.ForestSurface
@@ -129,7 +129,7 @@ fun SpectrogramWaterfallView(
                 for (f in gridFreqs) {
                     val y = freqToY(f)
                     drawLine(
-                        color = Color.White.copy(alpha = 0.12f),
+                        color = Color.Black.copy(alpha = 0.12f),
                         start = Offset(0f, y),
                         end = Offset(canvasWidth, y),
                         strokeWidth = 1f
@@ -163,13 +163,7 @@ fun SpectrogramWaterfallView(
                     val yBottom = freqToY(det.freqLowHz.toDouble()).coerceIn(0f, canvasHeight)
                     val boxHeight = max(10f, yBottom - yTop)
 
-                    val boxColor = when (det.category) {
-                        AnimalCategory.BIRD -> Color(0xFF00E676)
-                        AnimalCategory.FROG -> Color(0xFF00E5FF)
-                        AnimalCategory.MAMMAL -> Color(0xFFFFAB40)
-                        AnimalCategory.OTHER -> Color(0xFFE040FB)
-                        AnimalCategory.ALL -> Color.White
-                    }
+                    val boxColor = confidenceToColor(det.confidence)
 
                     // 框體半透明發光填充
                     drawRect(
@@ -180,7 +174,7 @@ fun SpectrogramWaterfallView(
 
                     // 框體邊線
                     drawRect(
-                        color = if (isSelected) Color.White else boxColor,
+                        color = if (isSelected) Color.Black else boxColor,
                         topLeft = Offset(x1, yTop),
                         size = Size(boxWidth, boxHeight),
                         style = Stroke(width = if (isSelected) 3.5f else 2f)
@@ -194,39 +188,68 @@ fun SpectrogramWaterfallView(
                         }
                         val paintText = android.graphics.Paint().apply {
                             color = android.graphics.Color.WHITE
-                            textSize = 28f
+                            textSize = 26f
+                            isAntiAlias = true
+                            typeface = android.graphics.Typeface.DEFAULT_BOLD
+                        }
+                        val paintConfLabel = android.graphics.Paint().apply {
+                            color = android.graphics.Color.argb(190, 180, 215, 205)
+                            textSize = 18f
+                            isAntiAlias = true
+                            typeface = android.graphics.Typeface.DEFAULT
+                        }
+                        val paintConfScore = android.graphics.Paint().apply {
+                            color = android.graphics.Color.WHITE
+                            textSize = 22f
                             isAntiAlias = true
                             typeface = android.graphics.Typeface.DEFAULT_BOLD
                         }
 
-                        val labelText = "${det.speciesName} ${det.soundClass} ${(det.confidence * 100).toInt()}%"
-                        val textWidth = paintText.measureText(labelText)
-                        val tagHeight = 36f
+                        val speciesAndSound = if (det.soundClass.isNotBlank()) "${det.speciesName} ${det.soundClass}" else det.speciesName
+                        val confLabel = "信心分數"
+                        val confScore = String.format(java.util.Locale.US, "%.2f", det.confidence)
 
+                        val mainWidth = paintText.measureText(speciesAndSound)
+                        val confLabelWidth = paintConfLabel.measureText(confLabel)
+                        val confScoreWidth = paintConfScore.measureText(confScore)
+
+                        val tagHeight = 36f
                         val tagY = if (yTop - tagHeight < 0f) yTop + tagHeight else yTop
                         val tagTop = tagY - tagHeight
 
-                        val tagRect = android.graphics.RectF(x1, tagTop, x1 + textWidth + 14f, tagY)
+                        val startX = x1 + 16f
+                        val confLabelX = startX + mainWidth + 8f
+                        val confScoreX = confLabelX + confLabelWidth + 4f
+                        val totalTagWidth = (confScoreX + confScoreWidth + 10f) - x1
+
+                        val tagRect = android.graphics.RectF(x1, tagTop, x1 + totalTagWidth, tagY)
                         drawRoundRect(tagRect, 6f, 6f, paintBg)
+
                         // 類別微型彩色圓點指示
                         val paintDot = android.graphics.Paint().apply {
                             color = boxColor.hashCode()
                             style = android.graphics.Paint.Style.FILL
                         }
                         drawCircle(x1 + 8f, tagTop + tagHeight / 2f, 4f, paintDot)
-                        drawText(labelText, x1 + 16f, tagY - 9f, paintText)
+
+                        // 繪製物種與聲音類別
+                        drawText(speciesAndSound, startX, tagY - 9f, paintText)
+                        // 繪製較小字級的信心分數 Label
+                        drawText(confLabel, confLabelX, tagY - 9f, paintConfLabel)
+                        // 繪製小數點數值
+                        drawText(confScore, confScoreX, tagY - 9f, paintConfScore)
                     }
                 }
 
                 // 5. 軸線標示與即時區域提示
                 drawContext.canvas.nativeCanvas.apply {
                     val axisPaint = android.graphics.Paint().apply {
-                        color = android.graphics.Color.argb(190, 200, 225, 215)
+                        color = android.graphics.Color.argb(200, 40, 55, 48)
                         textSize = 22f
                         isAntiAlias = true
                     }
                     val hintPaint = android.graphics.Paint().apply {
-                        color = android.graphics.Color.argb(160, 100, 240, 200)
+                        color = android.graphics.Color.argb(200, 0, 140, 100)
                         textSize = 20f
                         isAntiAlias = true
                     }
@@ -248,5 +271,15 @@ fun SpectrogramWaterfallView(
                 }
             }
         }
+    }
+}
+
+// 依信心分數標記框體顏色：低分紅、中段黃、高分綠
+private fun confidenceToColor(confidence: Float): Color {
+    val t = confidence.coerceIn(0f, 1f)
+    return if (t < 0.5f) {
+        lerp(Color(0xFFFF5252), Color(0xFFFFD740), t / 0.5f)
+    } else {
+        lerp(Color(0xFFFFD740), Color(0xFF00E676), (t - 0.5f) / 0.5f)
     }
 }

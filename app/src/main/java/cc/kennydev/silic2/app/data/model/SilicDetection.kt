@@ -26,5 +26,5 @@ data class SilicDetection(
         get() = "$freqLowHz - $freqHighHz Hz"
 
     val formattedConfidence: String
-        get() = "${(confidence * 100).toInt()}%"
+        get() = String.format(java.util.Locale.US, "%.2f", confidence)
 }

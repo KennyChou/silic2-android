@@ -99,7 +99,7 @@ fun ConfidenceThresholdDialog(
                     }
                     Column {
                         Text(
-                            text = "辨識信賴度門檻設定",
+                            text = "辨識信心分數設定",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
@@ -210,7 +210,7 @@ fun ConfidenceThresholdDialog(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "信賴度門檻說明",
+                            text = "信心分數說明",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
@@ -220,7 +220,7 @@ fun ConfidenceThresholdDialog(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "• 什麼是信賴度門檻？\n  SILIC 2 深度學習模型推論每個聲音特徵時會輸出 0%～100% 的信心評分。只有高於此門檻的辨識結果才會觸發顯示並納入紀錄。",
+                        text = "• 什麼是信心分數？\n  SILIC 2 深度學習模型推論每個聲音特徵時會輸出 0%～100% 的信心評分。只有高於此分數的辨識結果才會觸發顯示並納入紀錄。",
                         fontSize = 12.sp,
                         color = TextSecondary,
                         lineHeight = 18.sp

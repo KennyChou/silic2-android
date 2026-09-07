@@ -21,6 +21,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -29,7 +30,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cc.kennydev.silic2.app.data.model.AnimalCategory
 import cc.kennydev.silic2.app.data.model.RecordingSession
 import cc.kennydev.silic2.app.data.model.SilicDetection
 import cc.kennydev.silic2.app.ui.SilicViewModel
@@ -62,7 +62,7 @@ fun RecordingDetailScreen(
 
     DisposableEffect(Unit) {
         onDispose {
-            viewModel.stopPlayback()
+            viewModel.stopPlaybackAndResetPosition()
         }
     }
 
@@ -178,10 +178,11 @@ fun RecordingDetailScreen(
                             viewModel.playSessionClip(session, det)
                         },
                         onSeekTime = { seekMs ->
-                            if (!playbackState.isPlaying) {
-                                viewModel.playSession(session)
+                            if (playbackState.isPlaying) {
+                                viewModel.seekPlayback(seekMs)
+                            } else {
+                                viewModel.playSession(session, startAtMs = seekMs)
                             }
-                            viewModel.seekPlayback(seekMs)
                         }
                     )
                 } else {
@@ -214,12 +215,16 @@ fun RecordingDetailScreen(
                             fontWeight = FontWeight.Medium
                         )
 
+                        // 已自然播畢 (位置到達終點) 視為結束，需從頭開始播，而非「繼續」
+                        val isFinished = playbackState.totalDurationMs > 0L &&
+                            playbackState.currentPositionMs >= playbackState.totalDurationMs
                         Button(
                             onClick = {
                                 if (playbackState.isPlaying) {
                                     viewModel.stopPlayback()
                                 } else {
-                                    viewModel.playSession(session)
+                                    val resumeAtMs = if (isFinished) 0L else playbackState.currentPositionMs
+                                    viewModel.playSession(session, startAtMs = resumeAtMs)
                                 }
                             },
                             colors = ButtonDefaults.buttonColors(
@@ -234,7 +239,10 @@ fun RecordingDetailScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(if (playbackState.isPlaying) "暫停" else "播放全曲", fontSize = 12.sp)
+                            Text(
+                                text = if (playbackState.isPlaying) "暫停" else if (playbackState.currentPositionMs > 0L && !isFinished) "繼續播放" else "播放全曲",
+                                fontSize = 12.sp
+                            )
                         }
                     }
 
@@ -243,10 +251,11 @@ fun RecordingDetailScreen(
                         value = playbackState.progress.coerceIn(0f, 1f),
                         onValueChange = { newProg ->
                             val targetMs = (newProg * session.durationSec * 1000).toLong()
-                            if (!playbackState.isPlaying) {
-                                viewModel.playSession(session)
+                            if (playbackState.isPlaying) {
+                                viewModel.seekPlayback(targetMs)
+                            } else {
+                                viewModel.playSession(session, startAtMs = targetMs)
                             }
-                            viewModel.seekPlayback(targetMs)
                         },
                         colors = SliderDefaults.colors(
                             thumbColor = SilicGreen,
@@ -355,6 +364,7 @@ private fun HistoricalSpectrogramView(
     onSeekTime: (Long) -> Unit
 ) {
     val imageBitmap = remember(bitmap) { bitmap.asImageBitmap() }
+    val windowDurationMs = 6000L
 
     val fMin = 100.0
     val fMax = 15000.0
@@ -368,16 +378,25 @@ private fun HistoricalSpectrogramView(
         return (1f - norm) * height
     }
 
+    // 播放中：捲動至目前位置附近 6 秒窗口，像瀑布流一樣流動；暫停後停留在暫停當下的窗口畫面，不跳回全段總覽
+    val scrolling = currentPlayPosMs > 0L && durationMs > windowDurationMs
+    val windowStartMs = if (scrolling) {
+        (currentPlayPosMs - windowDurationMs / 2).coerceIn(0L, durationMs - windowDurationMs)
+    } else {
+        0L
+    }
+    val viewDurationMs = if (scrolling) windowDurationMs else max(1L, durationMs)
+
     Box(modifier = Modifier.fillMaxSize()) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(detections, durationMs) {
+                .pointerInput(detections, durationMs, windowStartMs, viewDurationMs) {
                     detectTapGestures { offset ->
                         if (durationMs <= 0) return@detectTapGestures
                         val clickedDet = detections.find { det ->
-                            val x1 = (det.timeBeginMs.toFloat() / durationMs) * size.width
-                            val x2 = (det.timeEndMs.toFloat() / durationMs) * size.width
+                            val x1 = ((det.timeBeginMs - windowStartMs).toFloat() / viewDurationMs) * size.width
+                            val x2 = ((det.timeEndMs - windowStartMs).toFloat() / viewDurationMs) * size.width
                             val yTop = freqToY(det.freqHighHz.toDouble(), size.height.toFloat())
                             val yBottom = freqToY(det.freqLowHz.toDouble(), size.height.toFloat())
                             offset.x in (x1 - 10f)..(x2 + 10f) && offset.y in yTop..yBottom
@@ -385,7 +404,7 @@ private fun HistoricalSpectrogramView(
                         if (clickedDet != null) {
                             onSelectDetection(clickedDet)
                         } else {
-                            val targetMs = (offset.x / size.width * durationMs).toLong().coerceIn(0L, durationMs)
+                            val targetMs = (windowStartMs + offset.x / size.width * viewDurationMs).toLong().coerceIn(0L, durationMs)
                             onSeekTime(targetMs)
                         }
                     }
@@ -394,34 +413,31 @@ private fun HistoricalSpectrogramView(
             val canvasWidth = size.width
             val canvasHeight = size.height
 
-            // 1. 繪製全段黑白頻譜圖
+            // 1. 繪製頻譜圖：播放時只切目前窗口，暫停時切全段
+            val srcOffsetX = ((windowStartMs.toFloat() / durationMs) * bitmap.width).toInt().coerceIn(0, bitmap.width - 1)
+            val srcWidthPx = ((viewDurationMs.toFloat() / durationMs) * bitmap.width).toInt().coerceIn(1, bitmap.width - srcOffsetX)
             drawImage(
                 image = imageBitmap,
-                srcOffset = IntOffset.Zero,
-                srcSize = IntSize(bitmap.width, bitmap.height),
+                srcOffset = IntOffset(srcOffsetX, 0),
+                srcSize = IntSize(srcWidthPx, bitmap.height),
                 dstOffset = IntOffset.Zero,
                 dstSize = IntSize(canvasWidth.toInt(), canvasHeight.toInt())
             )
 
-            // 2. 繪製所有 AI 標記方框
+            // 2. 繪製目前窗口內的 AI 標記方框
             if (durationMs > 0) {
                 for (det in detections) {
+                    if (det.timeEndMs < windowStartMs || det.timeBeginMs > windowStartMs + viewDurationMs) continue
                     val isSelected = selectedDetection == det
-                    val x1 = ((det.timeBeginMs.toFloat() / durationMs) * canvasWidth).coerceIn(0f, canvasWidth)
-                    val x2 = ((det.timeEndMs.toFloat() / durationMs) * canvasWidth).coerceIn(0f, canvasWidth)
+                    val x1 = (((det.timeBeginMs - windowStartMs).toFloat() / viewDurationMs) * canvasWidth).coerceIn(0f, canvasWidth)
+                    val x2 = (((det.timeEndMs - windowStartMs).toFloat() / viewDurationMs) * canvasWidth).coerceIn(0f, canvasWidth)
                     val boxWidth = max(8f, x2 - x1)
 
                     val yTop = freqToY(det.freqHighHz.toDouble(), canvasHeight).coerceIn(0f, canvasHeight)
                     val yBottom = freqToY(det.freqLowHz.toDouble(), canvasHeight).coerceIn(0f, canvasHeight)
                     val boxHeight = max(8f, yBottom - yTop)
 
-                    val boxColor = when (det.category) {
-                        AnimalCategory.BIRD -> Color(0xFF00E676)
-                        AnimalCategory.FROG -> Color(0xFF00E5FF)
-                        AnimalCategory.MAMMAL -> Color(0xFFFFAB40)
-                        AnimalCategory.OTHER -> Color(0xFFE040FB)
-                        AnimalCategory.ALL -> Color.White
-                    }
+                    val boxColor = confidenceToColor(det.confidence)
 
                     // 框體半透明填滿
                     drawRect(
@@ -432,7 +448,7 @@ private fun HistoricalSpectrogramView(
 
                     // 框體邊線
                     drawRect(
-                        color = if (isSelected) Color.White else boxColor,
+                        color = if (isSelected) Color.Black else boxColor,
                         topLeft = Offset(x1, yTop),
                         size = Size(boxWidth, boxHeight),
                         style = Stroke(width = if (isSelected) 3.5f else 1.8f)
@@ -450,22 +466,47 @@ private fun HistoricalSpectrogramView(
                             isAntiAlias = true
                             typeface = android.graphics.Typeface.DEFAULT_BOLD
                         }
-                        val label = "${det.speciesName} ${(det.confidence * 100).toInt()}%"
-                        val tw = paintText.measureText(label)
+                        val paintConfLabel = android.graphics.Paint().apply {
+                            color = android.graphics.Color.argb(190, 180, 215, 205)
+                            textSize = 16f
+                            isAntiAlias = true
+                            typeface = android.graphics.Typeface.DEFAULT
+                        }
+                        val paintConfScore = android.graphics.Paint().apply {
+                            color = android.graphics.Color.WHITE
+                            textSize = 20f
+                            isAntiAlias = true
+                            typeface = android.graphics.Typeface.DEFAULT_BOLD
+                        }
+
+                        val confLabel = "信心分數"
+                        val confScore = String.format(java.util.Locale.US, "%.2f", det.confidence)
+                        val mainWidth = paintText.measureText(det.speciesName)
+                        val confLabelWidth = paintConfLabel.measureText(confLabel)
+                        val confScoreWidth = paintConfScore.measureText(confScore)
+
                         val th = 32f
                         val tagY = if (yTop - th < 0f) yTop + th else yTop
                         val tagTop = tagY - th
 
-                        val rectF = android.graphics.RectF(x1, tagTop, x1 + tw + 12f, tagY)
+                        val startX = x1 + 6f
+                        val confLabelX = startX + mainWidth + 6f
+                        val confScoreX = confLabelX + confLabelWidth + 3f
+                        val totalTagWidth = (confScoreX + confScoreWidth + 6f) - x1
+
+                        val rectF = android.graphics.RectF(x1, tagTop, x1 + totalTagWidth, tagY)
                         drawRoundRect(rectF, 4f, 4f, paintBg)
-                        drawText(label, x1 + 6f, tagY - 8f, paintText)
+
+                        drawText(det.speciesName, startX, tagY - 8f, paintText)
+                        drawText(confLabel, confLabelX, tagY - 8f, paintConfLabel)
+                        drawText(confScore, confScoreX, tagY - 8f, paintConfScore)
                     }
                 }
             }
 
             // 3. 發光播放時間軸指針 (Playhead Line - 無論播放中或暫停都清晰可見)
             if (durationMs > 0 && (isPlaying || currentPlayPosMs > 0)) {
-                val playX = (currentPlayPosMs.toFloat() / durationMs * canvasWidth).coerceIn(0f, canvasWidth)
+                val playX = (((currentPlayPosMs - windowStartMs).toFloat() / viewDurationMs) * canvasWidth).coerceIn(0f, canvasWidth)
                 // 外部微光外暈
                 drawLine(
                     color = SilicGreen.copy(alpha = if (isPlaying) 0.50f else 0.25f),
@@ -475,14 +516,14 @@ private fun HistoricalSpectrogramView(
                 )
                 // 核心指示線
                 drawLine(
-                    color = if (isPlaying) Color.White else SilicGreen,
+                    color = if (isPlaying) Color.Black else SilicGreen,
                     start = Offset(playX, 0f),
                     end = Offset(playX, canvasHeight),
                     strokeWidth = 2.5f
                 )
                 // 指針頂部圓球標記
                 drawCircle(
-                    color = if (isPlaying) Color.White else SilicGreen,
+                    color = if (isPlaying) Color.Black else SilicGreen,
                     radius = 5.5f,
                     center = Offset(playX, 7f)
                 )
@@ -491,7 +532,7 @@ private fun HistoricalSpectrogramView(
             // 4. 軸線刻度標示
             drawContext.canvas.nativeCanvas.apply {
                 val axisPaint = android.graphics.Paint().apply {
-                    color = android.graphics.Color.argb(170, 180, 210, 200)
+                    color = android.graphics.Color.argb(200, 40, 55, 48)
                     textSize = 20f
                     isAntiAlias = true
                 }
@@ -501,5 +542,15 @@ private fun HistoricalSpectrogramView(
                 drawText("100Hz", 6f, canvasHeight - 6f, axisPaint)
             }
         }
+    }
+}
+
+// 依信心分數標記框體顏色：低分紅、中段黃、高分綠
+private fun confidenceToColor(confidence: Float): Color {
+    val t = confidence.coerceIn(0f, 1f)
+    return if (t < 0.5f) {
+        lerp(Color(0xFFFF5252), Color(0xFFFFD740), t / 0.5f)
+    } else {
+        lerp(Color(0xFFFFD740), Color(0xFF00E676), (t - 0.5f) / 0.5f)
     }
 }
