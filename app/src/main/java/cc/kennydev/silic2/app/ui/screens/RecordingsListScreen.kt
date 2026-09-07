@@ -70,19 +70,12 @@ fun RecordingsListScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "野外歷史錄音與標記",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = "共 ${sessions.size} 筆紀錄 · 自動儲存 WAV 與 Raven/CSV",
-                            fontSize = 11.sp,
-                            color = TextSecondary
-                        )
-                    }
+                    Text(
+                        text = "野外歷史錄音與標記",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -126,69 +119,80 @@ fun RecordingsListScreen(
         },
         containerColor = DarkForestBg
     ) { paddingValues ->
-        if (sessions.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.FolderOpen,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = ForestSurface
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("目前尚無野外錄音存檔", fontSize = 16.sp, color = TextSecondary)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text("在即時聽音時結束錄音，將自動儲存於此", fontSize = 12.sp, color = ForestSurface)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = { audioPickerLauncher.launch("audio/*") },
-                        colors = ButtonDefaults.buttonColors(containerColor = SilicGreen)
-                    ) {
-                        Icon(Icons.Default.FileOpen, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("匯入外部音訊辨識", color = Color.Black, fontWeight = FontWeight.Bold)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            Text(
+                text = "共 ${sessions.size} 筆紀錄 · 自動儲存 WAV 與 Raven/CSV",
+                fontSize = 11.sp,
+                color = TextSecondary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+            )
+
+            if (sessions.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.FolderOpen,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = ForestSurface
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("目前尚無野外錄音存檔", fontSize = 16.sp, color = TextSecondary)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text("在即時聽音時結束錄音，將自動儲存於此", fontSize = 12.sp, color = ForestSurface)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { audioPickerLauncher.launch("audio/*") },
+                            colors = ButtonDefaults.buttonColors(containerColor = SilicGreen)
+                        ) {
+                            Icon(Icons.Default.FileOpen, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("匯入外部音訊辨識", color = Color.Black, fontWeight = FontWeight.Bold)
+                        }
+
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f)
+                        .padding(horizontal = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(sessions, key = { it.id }) { session ->
+                        RecordingSessionCard(
+                            session = session,
+                            onClick = { onSelectSession(session) },
+                            onShare = { mode ->
+                                when (mode) {
+                                    ShareMode.ALL -> viewModel.shareAllSessionFiles(context, session)
+                                    ShareMode.WAV -> viewModel.shareFile(context, session.wavFile, "audio/wav", "分享 WAV 錄音檔")
+                                    ShareMode.RAVEN -> session.ravenFile?.let {
+                                        viewModel.shareFile(context, it, "text/plain", "分享 Raven 標籤檔")
+                                    }
+                                    ShareMode.CSV -> session.csvFile?.let {
+                                        viewModel.shareFile(context, it, "text/csv", "分享 CSV 辨識表")
+                                    }
+                                }
+                            },
+                            onDelete = {
+                                sessionToDelete = session
+                            }
+                        )
                     }
 
+                    item { Spacer(modifier = Modifier.height(20.dp)) }
                 }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                item { Spacer(modifier = Modifier.height(4.dp)) }
-
-                items(sessions, key = { it.id }) { session ->
-                    RecordingSessionCard(
-                        session = session,
-                        onClick = { onSelectSession(session) },
-                        onShare = { mode ->
-                            when (mode) {
-                                ShareMode.ALL -> viewModel.shareAllSessionFiles(context, session)
-                                ShareMode.WAV -> viewModel.shareFile(context, session.wavFile, "audio/wav", "分享 WAV 錄音檔")
-                                ShareMode.RAVEN -> session.ravenFile?.let {
-                                    viewModel.shareFile(context, it, "text/plain", "分享 Raven 標籤檔")
-                                }
-                                ShareMode.CSV -> session.csvFile?.let {
-                                    viewModel.shareFile(context, it, "text/csv", "分享 CSV 辨識表")
-                                }
-                            }
-                        },
-                        onDelete = {
-                            sessionToDelete = session
-                        }
-                    )
-                }
-
-                item { Spacer(modifier = Modifier.height(20.dp)) }
             }
         }
     }
