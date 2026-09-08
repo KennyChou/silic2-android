@@ -34,9 +34,10 @@ class RecordingRepository(private val context: Context) {
             val durationSec = dataBytes / (32000.0 * 2.0)
 
             // 解析物種標記 (優先讀 Raven .txt，其次讀 .csv)
-            val detections = ravenFile?.let { parseRavenFile(it, wav.lastModified()) }
+            val detections = (ravenFile?.let { parseRavenFile(it, wav.lastModified()) }
                 ?: csvFile?.let { parseCsvFile(it, wav.lastModified()) }
-                ?: emptyList()
+                ?: emptyList())
+                .sortedBy { it.timeBeginMs }
 
             RecordingSession(
                 id = baseName,
