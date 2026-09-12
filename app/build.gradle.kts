@@ -2,7 +2,6 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
@@ -33,12 +32,12 @@ fun gitVersionName(): String =
 
 android {
     namespace = "cc.kennydev.silic2.app"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "cc.kennydev.silic2.app"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 37
         versionCode = gitVersionCode()
         versionName = gitVersionName()
 
@@ -58,6 +57,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // 獨立 applicationId：debug 版與 Play 商店 release 版並存安裝，簽章不再互相打架
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -72,10 +76,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
     }
 
     buildFeatures {

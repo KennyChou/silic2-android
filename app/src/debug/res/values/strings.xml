@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- debug 版桌面圖示標籤加註記，跟 release 版並存時可辨識 -->
+    <string name="app_name">SILIC 2 Debug</string>
+</resources>
