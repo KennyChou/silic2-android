@@ -1,17 +1,23 @@
 package cc.kennydev.silic2.app.ui.screens
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -68,6 +74,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import cc.kennydev.silic2.app.domain.audio.PlaybackState
+import cc.kennydev.silic2.app.ui.SilicUiState
 import cc.kennydev.silic2.app.ui.SilicViewModel
 import cc.kennydev.silic2.app.ui.components.DetectionCard
 import cc.kennydev.silic2.app.ui.components.SpectrogramWaterfallView
@@ -270,212 +278,33 @@ fun LiveDetectionScreen(
         },
         containerColor = DarkForestBg
     ) { paddingValues ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 14.dp)
         ) {
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // 1. 動態滾動瀑布流頻譜圖 (Waterfall Spectrogram View)
-            SpectrogramWaterfallView(
-                spectrogramBitmap = uiState.spectrogramBitmap,
-                detections = uiState.rollingDetections,
-                currentAudioTimeMs = uiState.currentAudioTimeMs,
-                windowDurationMs = 6000L, // 6 秒視窗
-                selectedDetection = uiState.selectedDetection,
-                onBoxClick = { det ->
-                    viewModel.selectDetection(det)
-                    viewModel.playDetectionClip(det)
-                }
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // 頻譜狀態與回放控制工具列
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (playbackState.isPlaying) {
-                        FilledTonalButton(
-                            onClick = { viewModel.stopPlayback() },
-                            modifier = Modifier.height(34.dp),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("停止回放", fontSize = 12.sp)
-                        }
-                    } else if (uiState.spectrogramBitmap != null) {
-                        FilledTonalButton(
-                            onClick = { viewModel.playFullClip() },
-                            modifier = Modifier.height(34.dp),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("回放聲音", fontSize = 12.sp)
-                        }
-                    }
-                }
-
-                if (uiState.latestWavFilePath != null) {
-                    Text(
-                        text = if (uiState.isRecording) "🔴 WAV 連續存檔中" else "💾 已儲存音檔",
-                        fontSize = 11.sp,
-                        color = if (uiState.isRecording) Color(0xFFFF5252) else TextTertiary
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // 2. 錄音動態波形條
-            WaveformVisualizer(
-                amplitude = uiState.amplitude,
-                isRecording = uiState.isRecording
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 3. 主操作按鈕：開始聽音 / 停止聽音
-            Button(
-                onClick = {
-                    if (uiState.isRecording) {
-                        viewModel.stopListening()
-                    } else {
-                        val hasPermission = ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.RECORD_AUDIO
-                        ) == PackageManager.PERMISSION_GRANTED
-
-                        if (hasPermission) {
-                            viewModel.startListening()
-                        } else {
-                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (uiState.isRecording) Color(0xFFC62828) else SilicGreen,
-                    contentColor = if (uiState.isRecording) Color.White else DarkForestBg
-                )
-            ) {
-                Icon(
-                    imageVector = if (uiState.isRecording) Icons.Default.Stop else Icons.Default.Mic,
-                    contentDescription = null,
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (uiState.isRecording) "停止監聽與存檔" else "開始野外即時聽音",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 4. 辨識結果清單標題與清空按鈕
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "即時辨識清單 (${uiState.detections.size})",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
-                    )
-                    if (uiState.targetClassIds.isNotEmpty()) {
-                        Text(
-                            text = "已鎖定 ${uiState.targetClassIds.size} 種",
-                            fontSize = 12.sp,
-                            color = TealAccent
-                        )
-                    }
-                }
-
-                if (uiState.detections.isNotEmpty()) {
-                    TextButton(
-                        onClick = {
-                            viewModel.clearCurrentDetections()
-                            Toast.makeText(context, "已清空即時辨識清單", Toast.LENGTH_SHORT).show()
-                        },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                        modifier = Modifier.height(28.dp)
+            // 橫向/平板橫放時（寬 > 高）改用左右雙欄：左側頻譜圖與控制項、右側辨識清單
+            if (maxWidth > maxHeight) {
+                Row(modifier = Modifier.fillMaxSize()) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState())
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteOutline,
-                            contentDescription = "清空清單",
-                            tint = Color(0xFFFF8A80),
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "清空清單",
-                            fontSize = 12.sp,
-                            color = Color(0xFFFF8A80),
-                            fontWeight = FontWeight.Medium
-                        )
+                        LiveTopControls(uiState, playbackState, viewModel, context, permissionLauncher)
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            if (uiState.detections.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🌿", fontSize = 34.sp)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = if (uiState.isRecording) "即時頻譜滾動中，等待鳴叫聲..." else "點擊上方按鈕開始野外聽音",
-                            fontSize = 14.sp,
-                            color = TextSecondary
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "右側即時收音，聲音累積 3 秒後自動在左側框選標記",
-                            fontSize = 11.sp,
-                            color = TextTertiary
-                        )
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                        LiveDetectionListSection(uiState, viewModel, context)
                     }
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    items(uiState.detections) { detection ->
-                        DetectionCard(
-                            detection = detection,
-                            isSelected = uiState.selectedDetection == detection,
-                            onCardClick = {
-                                viewModel.selectDetection(detection)
-                                viewModel.playDetectionClip(detection)
-                            },
-                            onPlayClip = { viewModel.playDetectionClip(detection) }
-                        )
-                    }
+                Column(modifier = Modifier.fillMaxSize()) {
+                    LiveTopControls(uiState, playbackState, viewModel, context, permissionLauncher)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    LiveDetectionListSection(uiState, viewModel, context)
                 }
             }
         }
@@ -504,5 +333,222 @@ fun LiveDetectionScreen(
             },
             onDismiss = { showBgSettingsDialog = false }
         )
+    }
+}
+
+@Composable
+private fun LiveTopControls(
+    uiState: SilicUiState,
+    playbackState: PlaybackState,
+    viewModel: SilicViewModel,
+    context: Context,
+    permissionLauncher: ActivityResultLauncher<String>
+) {
+    Spacer(modifier = Modifier.height(6.dp))
+
+    // 1. 動態滾動瀑布流頻譜圖 (Waterfall Spectrogram View)
+    SpectrogramWaterfallView(
+        spectrogramBitmap = uiState.spectrogramBitmap,
+        detections = uiState.rollingDetections,
+        currentAudioTimeMs = uiState.currentAudioTimeMs,
+        windowDurationMs = 6000L, // 6 秒視窗
+        selectedDetection = uiState.selectedDetection,
+        onBoxClick = { det ->
+            viewModel.selectDetection(det)
+            viewModel.playDetectionClip(det)
+        }
+    )
+
+    Spacer(modifier = Modifier.height(6.dp))
+
+    // 頻譜狀態與回放控制工具列
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (playbackState.isPlaying) {
+                FilledTonalButton(
+                    onClick = { viewModel.stopPlayback() },
+                    modifier = Modifier.height(34.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("停止回放", fontSize = 12.sp)
+                }
+            } else if (uiState.spectrogramBitmap != null) {
+                FilledTonalButton(
+                    onClick = { viewModel.playFullClip() },
+                    modifier = Modifier.height(34.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("回放聲音", fontSize = 12.sp)
+                }
+            }
+        }
+
+        if (uiState.latestWavFilePath != null) {
+            Text(
+                text = if (uiState.isRecording) "🔴 WAV 連續存檔中" else "💾 已儲存音檔",
+                fontSize = 11.sp,
+                color = if (uiState.isRecording) Color(0xFFFF5252) else TextTertiary
+            )
+        }
+    }
+
+    Spacer(modifier = Modifier.height(4.dp))
+
+    // 2. 錄音動態波形條
+    WaveformVisualizer(
+        amplitude = uiState.amplitude,
+        isRecording = uiState.isRecording
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    // 3. 主操作按鈕：開始聽音 / 停止聽音
+    Button(
+        onClick = {
+            if (uiState.isRecording) {
+                viewModel.stopListening()
+            } else {
+                val hasPermission = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.RECORD_AUDIO
+                ) == PackageManager.PERMISSION_GRANTED
+
+                if (hasPermission) {
+                    viewModel.startListening()
+                } else {
+                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }
+            }
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (uiState.isRecording) Color(0xFFC62828) else SilicGreen,
+            contentColor = if (uiState.isRecording) Color.White else DarkForestBg
+        )
+    ) {
+        Icon(
+            imageVector = if (uiState.isRecording) Icons.Default.Stop else Icons.Default.Mic,
+            contentDescription = null,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = if (uiState.isRecording) "停止監聽與存檔" else "開始野外即時聽音",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun LiveDetectionListSection(
+    uiState: SilicUiState,
+    viewModel: SilicViewModel,
+    context: Context
+) {
+    // 4. 辨識結果清單標題與清空按鈕
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "即時辨識清單 (${uiState.detections.size})",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            if (uiState.targetClassIds.isNotEmpty()) {
+                Text(
+                    text = "已鎖定 ${uiState.targetClassIds.size} 種",
+                    fontSize = 12.sp,
+                    color = TealAccent
+                )
+            }
+        }
+
+        if (uiState.detections.isNotEmpty()) {
+            TextButton(
+                onClick = {
+                    viewModel.clearCurrentDetections()
+                    Toast.makeText(context, "已清空即時辨識清單", Toast.LENGTH_SHORT).show()
+                },
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                modifier = Modifier.height(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DeleteOutline,
+                    contentDescription = "清空清單",
+                    tint = Color(0xFFFF8A80),
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "清空清單",
+                    fontSize = 12.sp,
+                    color = Color(0xFFFF8A80),
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(4.dp))
+
+    if (uiState.detections.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("🌿", fontSize = 34.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (uiState.isRecording) "即時頻譜滾動中，等待鳴叫聲..." else "點擊上方按鈕開始野外聽音",
+                    fontSize = 14.sp,
+                    color = TextSecondary
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "右側即時收音，聲音累積 3 秒後自動在左側框選標記",
+                    fontSize = 11.sp,
+                    color = TextTertiary
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            items(uiState.detections) { detection ->
+                DetectionCard(
+                    detection = detection,
+                    isSelected = uiState.selectedDetection == detection,
+                    onCardClick = {
+                        viewModel.selectDetection(detection)
+                        viewModel.playDetectionClip(detection)
+                    },
+                    onPlayClip = { viewModel.playDetectionClip(detection) }
+                )
+            }
+        }
     }
 }
