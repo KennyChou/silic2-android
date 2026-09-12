@@ -8,11 +8,16 @@ import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 class UniversalAudioDecoder(private val context: Context) {
+
+    companion object {
+        // ponytail: 固定上限擋解壓縮炸彈 (惡意/損毀檔案宣告超長時長導致解碼後 PCM 撐爆記憶體 OOM)。
+        // 之後若需支援更長的匯入音檔，改成串流式分段解碼 + 分段寫檔，而非整段留在記憶體。
+        private const val MAX_DECODED_PCM_BYTES = 32_000L * 2 * 60 * 10 // 32kHz, 16-bit, 10 分鐘
+    }
 
     /**
      * 從 Uri 解碼任何音訊檔案 (WAV, MP3, M4A, AAC, FLAC, OGG 等)，並重採樣為 32000Hz 單聲道 16-bit PCM ShortArray
@@ -64,7 +69,9 @@ class UniversalAudioDecoder(private val context: Context) {
         codec.configure(format, null, null, 0)
         codec.start()
 
-        val pcmByteStream = ByteArrayOutputStream()
+        // 用 chunk list 累加而非單一成長陣列：避免 ByteArrayOutputStream 內部倍增時單次配置量遠超實際內容量造成 OOM
+        val pcmChunks = ArrayList<ByteArray>()
+        var totalPcmBytes = 0L
         val bufferInfo = MediaCodec.BufferInfo()
         var isExtractorEOS = false
         var isDecoderEOS = false
@@ -100,9 +107,13 @@ class UniversalAudioDecoder(private val context: Context) {
                     if (outBuffer != null && bufferInfo.size > 0) {
                         outBuffer.position(bufferInfo.offset)
                         outBuffer.limit(bufferInfo.offset + bufferInfo.size)
+                        if (totalPcmBytes + bufferInfo.size > MAX_DECODED_PCM_BYTES) {
+                            throw IllegalArgumentException("音訊檔案過長 (超過 10 分鐘)，請匯入較短的片段")
+                        }
                         val chunk = ByteArray(bufferInfo.size)
                         outBuffer.get(chunk)
-                        pcmByteStream.write(chunk)
+                        pcmChunks.add(chunk)
+                        totalPcmBytes += chunk.size
                     }
                     codec.releaseOutputBuffer(outIndex, false)
 
@@ -118,9 +129,14 @@ class UniversalAudioDecoder(private val context: Context) {
             tempFile.delete()
         }
 
-        val rawBytes = pcmByteStream.toByteArray()
-        if (rawBytes.isEmpty()) {
+        if (totalPcmBytes == 0L) {
             return@withContext ShortArray(0)
+        }
+        val rawBytes = ByteArray(totalPcmBytes.toInt())
+        var offset = 0
+        for (chunk in pcmChunks) {
+            chunk.copyInto(rawBytes, offset)
+            offset += chunk.size
         }
 
         // 轉換 byte[] 為 short[] (16-bit signed PCM, Little Endian)
