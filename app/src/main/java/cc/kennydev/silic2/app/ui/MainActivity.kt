@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
+import androidx.core.content.IntentCompat
 import cc.kennydev.silic2.app.ui.screens.AboutScreen
 import cc.kennydev.silic2.app.ui.screens.LiveDetectionScreen
 import cc.kennydev.silic2.app.ui.screens.RecordingDetailScreen
@@ -237,7 +238,7 @@ class MainActivity : ComponentActivity() {
         if (intent == null) return null
         return when (intent.action) {
             Intent.ACTION_SEND -> {
-                intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+                IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
                     ?: intent.clipData?.getItemAt(0)?.uri
                     ?: intent.data
             }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import android.net.Uri
@@ -314,7 +315,7 @@ private fun RecordingSessionCard(
                             if (session.ravenFile != null) {
                                 DropdownMenuItem(
                                     text = { Text("分享 Raven 標籤檔 (.txt)") },
-                                    leadingIcon = { Icon(Icons.Default.Label, contentDescription = null, tint = Color(0xFFFFD54F)) },
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null, tint = Color(0xFFFFD54F)) },
                                     onClick = {
                                         showShareMenu = false
                                         onShare(ShareMode.RAVEN)

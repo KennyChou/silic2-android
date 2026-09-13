@@ -27,8 +27,7 @@ SILIC 2 Mobile：把上游 [RedbirdTaiwan/silic2](https://github.com/RedbirdTaiw
 
 - `app/src/main/assets/best_float32.tflite` 與 `sample_owl.pcm` **被 .gitignore 排除**，clone 後不存在。缺模型時 App 仍可啟動但 `SilicDetector.isModelLoaded == false`、偵測永遠回傳空清單；`testRealDeviceInferenceOnSampleOwl` 會失敗。用 `python export_tflite_model.py --model /path/to/silic2/model/v2026.1/best.pt` 重新匯出（需要 ultralytics 環境，腳本會自動複製進 assets）。
 - `assembleRelease` 讀 `rootProject.file("key.properties")`（同樣被 gitignore，含 `storeFile`/`storePassword`/`keyAlias`/`keyPassword`）。檔案不存在時 `keyProperties["storeFile"] as String` 會直接 NPE，整個 configuration phase 掛掉——debug 建置也會受影響。
-- release 的 `proguard-rules.pro` 在 `app/build.gradle.kts` 有引用但**檔案不存在**；`isMinifyEnabled = true`，第一次做 release 建置前要先建立它（LiteRT / TFLite 反射類別需要 keep 規則）。
-- `test_litert.gradle.kts` 是遺留的空殼檔，未被任何地方 include。
+- release 的 `proguard-rules.pro`（`app/proguard-rules.pro`）已建立，含 LiteRT / TFLite 反射類別的 keep 規則；`isMinifyEnabled = true`，修改依賴後記得同步檢查規則是否仍夠用。
 
 ## 架構
 

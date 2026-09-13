@@ -25,7 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.SignalCellularAlt
 import androidx.compose.material3.Card
@@ -200,7 +200,7 @@ fun AboutScreen(onBack: () -> Unit) {
             Spacer(modifier = Modifier.height(12.dp))
 
             // ── 連結 ────────────────────────────────────────────────────
-            AboutSection(title = "相關連結", icon = Icons.Default.OpenInNew) {
+            AboutSection(title = "相關連結", icon = Icons.AutoMirrored.Filled.OpenInNew) {
                 LinkItem(
                     label = "上游專案 RedbirdTaiwan/silic2",
                     url = "https://github.com/RedbirdTaiwan/silic2",
@@ -328,7 +328,7 @@ private fun LinkItem(label: String, url: String, context: android.content.Contex
             .padding(vertical = 8.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(Icons.Default.OpenInNew, contentDescription = null, tint = SilicGreen, modifier = Modifier.size(16.dp))
+        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, tint = SilicGreen, modifier = Modifier.size(16.dp))
         Spacer(modifier = Modifier.width(10.dp))
         Column {
             Text(label, fontSize = 13.sp, color = SilicGreen, fontWeight = FontWeight.Medium)
