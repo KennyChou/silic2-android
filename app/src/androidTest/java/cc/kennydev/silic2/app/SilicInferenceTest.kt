@@ -98,4 +98,55 @@ class SilicInferenceTest {
 
         detector.close()
     }
+
+    @Test
+    fun benchmarkInferencePipeline() {
+        val appContext = InstrumentationRegistry.getInstrumentation().targetContext
+        val detector = SilicDetector(appContext)
+        assertTrue("Model should be loaded successfully", detector.isModelLoaded)
+
+        val melConverter = MelSpectrogramConverter()
+        val rainbowRenderer = RainbowRenderer()
+
+        val bytes = appContext.assets.open("sample_owl.pcm").use { it.readBytes() }
+        val shorts = ShortArray(bytes.size / 2)
+        ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts)
+
+        val melMs = mutableListOf<Long>()
+        val renderMs = mutableListOf<Long>()
+        val detectMs = mutableListOf<Long>()
+        val totalMs = mutableListOf<Long>()
+
+        val warmupRuns = 3
+        val timedRuns = 15
+        repeat(warmupRuns + timedRuns) { i ->
+            val t0 = System.nanoTime()
+            val melSpec = melConverter.computeMelSpectrogram(shorts)
+            val t1 = System.nanoTime()
+            val bitmap = rainbowRenderer.renderToBitmap(melSpec)
+            val t2 = System.nanoTime()
+            detector.detect(bitmap = bitmap, clipStartMs = 0L, confThreshold = 0.15f)
+            val t3 = System.nanoTime()
+
+            if (i >= warmupRuns) {
+                melMs.add((t1 - t0) / 1_000_000)
+                renderMs.add((t2 - t1) / 1_000_000)
+                detectMs.add((t3 - t2) / 1_000_000)
+                totalMs.add((t3 - t0) / 1_000_000)
+            }
+        }
+
+        fun summarize(name: String, samples: List<Long>) {
+            android.util.Log.i(
+                "SilicBenchmark",
+                "$name: avg=${samples.average().toInt()}ms min=${samples.min()}ms max=${samples.max()}ms"
+            )
+        }
+        summarize("MelSpectrogram", melMs)
+        summarize("RainbowRender", renderMs)
+        summarize("Detect(resize+tensor+tflite.run)", detectMs)
+        summarize("Total pipeline", totalMs)
+
+        detector.close()
+    }
 }
